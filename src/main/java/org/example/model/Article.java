@@ -5,10 +5,12 @@ public class Article {
     private String authors;
     private String publication;
     private String year;
-    private int citedBy;
+    private String abstractText;
     private String link;
+    private String keywords;
+    private int citedBy;
 
-    // Getters y setters
+    // Getters and setters
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
@@ -21,9 +23,17 @@ public class Article {
     public String getYear() { return year; }
     public void setYear(String year) { this.year = year; }
 
-    public int getCitedBy() { return citedBy; }
-    public void setCitedBy(int citedBy) { this.citedBy = citedBy; }
+    public String getAbstract() { return abstractText; }
+    public void setAbstract(String abstractText) { this.abstractText = abstractText; }
 
     public String getLink() { return link; }
     public void setLink(String link) { this.link = link; }
+
+    public String getKeywords() { return keywords; }
+    public void setKeywords(String keywords) { this.keywords = keywords; }
+
+    public int getCitedBy() { return citedBy; }
+    public void setCitedBy(int citedBy) { this.citedBy = citedBy; }
 }
+
+

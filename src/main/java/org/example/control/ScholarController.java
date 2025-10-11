@@ -42,8 +42,33 @@ public class ScholarController {
         }
     }
 
-    // --- Buscar por author_id (exacto) ---
-    public List<Article> searchByAuthorId(String authorId) throws IOException {
+    // Extract article data from JSON node
+    private Article extractArticle(JsonNode art) {
+        Article a = new Article();
+        a.setTitle(art.path("title").asText(null));
+        a.setAuthors(art.path("authors").asText(null));
+        a.setPublication(art.path("publication").asText(null));
+        a.setYear(art.path("year").asText(null));
+
+        // Extract abstract/snippet
+        String snippet = art.path("snippet").asText(null);
+        a.setAbstract(snippet);
+
+        // Extract cited by count
+        JsonNode cited = art.path("cited_by").path("value");
+        a.setCitedBy(cited.isMissingNode() ? 0 : cited.asInt(0));
+
+        // Extract link
+        a.setLink(art.path("link").asText(null));
+
+        // Try to extract keywords (not always available)
+        a.setKeywords(null);
+
+        return a;
+    }
+
+    // Search by author_id (exact)
+    public List<Article> searchByAuthorId(String authorId, int maxResults) throws IOException {
         if (authorId == null || authorId.isBlank())
             throw new IllegalArgumentException("author_id required");
 
@@ -59,23 +84,18 @@ public class ScholarController {
 
         List<Article> articles = new ArrayList<>();
         if (articlesNode.isArray()) {
+            int count = 0;
             for (JsonNode art : articlesNode) {
-                Article a = new Article();
-                a.setTitle(art.path("title").asText(null));
-                a.setAuthors(art.path("authors").asText(null));
-                a.setPublication(art.path("publication").asText(null));
-                a.setYear(art.path("year").asText(null));
-                JsonNode cited = art.path("cited_by").path("value");
-                a.setCitedBy(cited.isMissingNode() ? -1 : cited.asInt(-1));
-                a.setLink(art.path("link").asText(null));
-                articles.add(a);
+                if (count >= maxResults) break;
+                articles.add(extractArticle(art));
+                count++;
             }
         }
         return articles;
     }
 
-    // --- Buscar por nombre (aproximado) ---
-    public List<Article> searchByAuthorName(String name) throws IOException {
+    // Search by author name (approximate)
+    public List<Article> searchByAuthorName(String name, int maxResults) throws IOException {
         if (name == null || name.isBlank())
             throw new IllegalArgumentException("Author name required");
 
@@ -87,37 +107,41 @@ public class ScholarController {
 
         String body = httpGet(url);
         JsonNode root = mapper.readTree(body);
-        JsonNode articlesNode = root.path("articles");
+        JsonNode articlesNode = root.path("organic_results");
 
         List<Article> articles = new ArrayList<>();
         if (articlesNode.isArray()) {
+            int count = 0;
             for (JsonNode art : articlesNode) {
-                String authors = art.path("authors").asText("").toLowerCase();
-                if (authors.contains(name.toLowerCase())) { // filtrar por coincidencia exacta en texto
-                    Article a = new Article();
-                    a.setTitle(art.path("title").asText(null));
-                    a.setAuthors(authors);
-                    a.setPublication(art.path("publication").asText(null));
-                    a.setYear(art.path("year").asText(null));
-                    JsonNode cited = art.path("cited_by").path("value");
-                    a.setCitedBy(cited.isMissingNode() ? -1 : cited.asInt(-1));
-                    a.setLink(art.path("link").asText(null));
-                    articles.add(a);
+                if (count >= maxResults) break;
+                String authors = art.path("publication_info").path("authors").asText("").toLowerCase();
+                if (authors.isEmpty()) {
+                    authors = art.path("authors").asText("").toLowerCase();
+                }
+
+                if (authors.contains(name.toLowerCase())) {
+                    articles.add(extractArticle(art));
+                    count++;
                 }
             }
         }
         return articles;
     }
 
-    // --- Híbrido: si hay author_id usa exacto, sino nombre ---
-    public List<Article> searchHybrid(String authorId, String name) throws IOException {
+    // Hybrid search
+    public List<Article> searchHybrid(String authorId, String name, int maxResults) throws IOException {
         if (authorId != null && !authorId.isBlank()) {
-            return searchByAuthorId(authorId);
+            return searchByAuthorId(authorId, maxResults);
         } else if (name != null && !name.isBlank()) {
-            return searchByAuthorName(name);
+            return searchByAuthorName(name, maxResults);
         } else {
             throw new IllegalArgumentException("Either authorId or name must be provided");
         }
+    }
+
+    // Convenience method for backward compatibility
+    public List<Article> searchHybrid(String authorId, String name) throws IOException {
+        return searchHybrid(authorId, name, Integer.MAX_VALUE);
     }
 }
 
